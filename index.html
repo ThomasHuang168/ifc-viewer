@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IFC Viewer</title>
+  </head>
+  <body>
+    <div id="viewer"></div>
+
+    <header class="toolbar">
+      <span class="brand">IFC Viewer</span>
+      <label class="btn primary">
+        Open IFC
+        <input id="file-input" type="file" accept=".ifc" hidden />
+      </label>
+      <button id="btn-fit" class="btn" title="Fit model to view (F)">Fit</button>
+      <button id="btn-clear" class="btn" title="Clear selection (Esc)">Clear</button>
+      <span id="status" class="status">Drop an .ifc file anywhere, or click Open IFC</span>
+    </header>
+
+    <aside id="props" class="props hidden">
+      <div class="props-head">
+        <strong>Properties</strong>
+        <button id="props-close" class="icon-btn" aria-label="Close">×</button>
+      </div>
+      <div id="props-body" class="props-body"></div>
+    </aside>
+
+    <div id="drop-overlay" class="drop-overlay hidden">Drop IFC file to load</div>
+    <div id="loading" class="loading hidden"><div class="spinner"></div><span id="loading-text">Loading…</span></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
