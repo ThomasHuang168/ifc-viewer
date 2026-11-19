@@ -1,9 +1,13 @@
+// Must be first: captures console output from everything that follows
+import { mountConsole, setConsoleScope } from "./console";
 import * as THREE from "three";
 import * as OBC from "@thatopen/components";
 import * as OBF from "@thatopen/components-front";
 import type { ItemData } from "@thatopen/fragments";
 // Bundle the fragments worker with the site (no CDN needed at runtime)
 import workerUrl from "@thatopen/fragments/worker?url";
+import { createResourceMonitor } from "./resources";
+import { createExporter, type SourceFile } from "./export";
 import "./style.css";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -65,8 +69,12 @@ await ifcLoader.setup({
   wasm: { path: new URL("wasm/", document.baseURI).href, absolute: true },
 });
 
+// Original IFC bytes per model id, kept so they can be downloaded again
+const sources = new Map<string, SourceFile>();
+
 async function clearModels() {
   for (const [id] of fragments.list) await fragments.core.disposeModel(id);
+  sources.clear();
 }
 
 async function loadIfc(buffer: ArrayBuffer, name: string) {
@@ -75,16 +83,22 @@ async function loadIfc(buffer: ArrayBuffer, name: string) {
   try {
     await clearModels();
     clearSelection();
-    await ifcLoader.load(new Uint8Array(buffer), true, name, {
+    console.info(`Loading ${name} (${(buffer.byteLength / 1048576).toFixed(1)} MB)`);
+    const t0 = performance.now();
+    const data = new Uint8Array(buffer);
+    sources.set(name, { name, data });
+    await ifcLoader.load(data, true, name, {
       processData: {
         progressCallback: (p: number) =>
           setLoading(`Converting ${name}… ${Math.round(p * 100)}%`),
       },
     });
+    console.info(`Loaded ${name} in ${((performance.now() - t0) / 1000).toFixed(1)} s`);
     await new Promise((r) => setTimeout(r, 50));
     await fitAll();
   } catch (err) {
     console.error(err);
+    sources.delete(name);
     statusEl.textContent = `Could not load ${name}: ${(err as Error).message}`;
   } finally {
     setLoading(null);
@@ -195,6 +209,84 @@ highlighter.events.select.onHighlight.add(async (modelIdMap) => {
 
 highlighter.events.select.onClear.add(() => propsPanel.classList.add("hidden"));
 
+// ---------- Console, resources, downloads ----------
+const consolePanel = $("console");
+const resourcesPanel = $("resources");
+const btnConsole = $("btn-console");
+const btnResources = $("btn-resources");
+const consoleUi = mountConsole(consolePanel);
+
+const monitor = createResourceMonitor({
+  panel: resourcesPanel,
+  renderer: world.renderer.three,
+  getModelStats: () => {
+    let bytes = 0;
+    for (const s of sources.values()) bytes += s.data.byteLength;
+    return { models: fragments.list.size, bytes };
+  },
+});
+
+const exporter = createExporter({
+  fragments,
+  sources,
+  snapshot: monitor.snapshot,
+  progress: (t) => setLoading(t),
+});
+
+function togglePanel(panel: HTMLElement, btn: HTMLElement, show?: boolean) {
+  const visible = show ?? panel.classList.contains("hidden");
+  panel.classList.toggle("hidden", !visible);
+  btn.setAttribute("aria-pressed", String(visible));
+  return visible;
+}
+const toggleConsole = (show?: boolean) => {
+  const visible = togglePanel(consolePanel, btnConsole, show);
+  document.body.classList.toggle("console-open", visible);
+  if (visible) consoleUi.focus();
+};
+const toggleResources = (show?: boolean) => togglePanel(resourcesPanel, btnResources, show);
+
+btnConsole.addEventListener("click", () => toggleConsole());
+btnResources.addEventListener("click", () => toggleResources());
+consolePanel.querySelector('[data-act="close"]')!.addEventListener("click", () => toggleConsole(false));
+resourcesPanel.querySelector('[data-act="close"]')!.addEventListener("click", () => toggleResources(false));
+
+const btnDownload = $("btn-download");
+const downloadMenu = $("download-menu");
+const setMenu = (open: boolean) => {
+  downloadMenu.classList.toggle("hidden", !open);
+  btnDownload.setAttribute("aria-expanded", String(open));
+};
+btnDownload.addEventListener("click", (e) => {
+  e.stopPropagation();
+  setMenu(downloadMenu.classList.contains("hidden"));
+});
+document.addEventListener("click", () => setMenu(false));
+downloadMenu.addEventListener("click", async (e) => {
+  const item = (e.target as HTMLElement).closest<HTMLElement>("[data-dl]");
+  if (!item) return;
+  setMenu(false);
+  const kind = item.dataset.dl as keyof typeof exporter;
+  try {
+    await exporter[kind]();
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = (err as Error).message;
+  }
+});
+
+// Handy objects for the in-browser console
+const scope = { THREE, OBC, OBF, components, world, fragments, highlighter, ifcLoader, sources, exporter, monitor };
+setConsoleScope({
+  ...scope,
+  help: () =>
+    console.info(
+      "Available: " + Object.keys(scope).join(", ") +
+      "\nExamples: fragments.list.size · monitor.snapshot() · await exporter.all() · clear()",
+    ),
+});
+console.info("IFC Viewer ready. Press ` to open this console, R for resources.");
+
 // ---------- UI wiring ----------
 $<HTMLInputElement>("file-input").addEventListener("change", async (e) => {
   const input = e.target as HTMLInputElement;
@@ -207,9 +299,12 @@ $("btn-clear").addEventListener("click", clearSelection);
 $("props-close").addEventListener("click", clearSelection);
 
 window.addEventListener("keydown", (e) => {
-  if ((e.target as HTMLElement).tagName === "INPUT") return;
+  const tag = (e.target as HTMLElement).tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA") return;
   if (e.key === "f" || e.key === "F") fitAll();
-  if (e.key === "Escape") clearSelection();
+  if (e.key === "`") { e.preventDefault(); toggleConsole(); }
+  if (e.key === "r" || e.key === "R") toggleResources();
+  if (e.key === "Escape") { clearSelection(); setMenu(false); }
 });
 
 // Drag & drop

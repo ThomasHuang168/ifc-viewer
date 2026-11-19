@@ -9,6 +9,9 @@ A browser-based IFC (BIM) viewer built with [That Open Engine](https://thatopen.
 - Click an element to highlight it and see its attributes, property sets and quantities
 - **F** fits the model to the view, **Esc** clears the selection
 - Load a model from a URL: `?model=models/my-building.ifc`
+- **Console** (toolbar button or the **`** key): shows everything the app logs, including errors, and runs JavaScript. The viewer's objects (`world`, `fragments`, `components`, `THREE`, `exporter`, `monitor`, …) are in scope; type `help()` to list them. Up/Down recalls history, Shift+Enter adds a line, Ctrl+L clears.
+- **Download** menu: save everything the browser holds as one `.zip` (original IFC, converted `.frag`, metadata and categories, spatial structure, element properties as JSON and CSV, every IFC entity as JSON, the console log and a resource snapshot), or any of those on its own.
+- **Resources** (toolbar button or **R**): live frame rate, JS heap use, site storage, draw calls, triangles, GPU geometries and textures, loaded model size, CPU threads, device memory and GPU name. JS heap size is only reported by Chromium-based browsers.
 
 ## Run locally
 
