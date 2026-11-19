@@ -67,11 +67,13 @@ async function elementsData(model: FragmentsModel, progress: Progress, label: st
   return items.map((i) => simplify(i));
 }
 
-function elementsCsv(elements: Record<string, unknown>[]) {
+/** Flattens elements to one row each: fixed attributes plus "PsetName.Property" columns. */
+function elementRows(elements: Record<string, unknown>[]) {
   const fixed = ["_localId", "_category", "_guid", "Name", "ObjectType", "Tag", "PredefinedType"];
   const psetCols = new Set<string>();
   const rows = elements.map((el) => {
     const row: Record<string, unknown> = {};
+    if (el._model !== undefined) row._model = el._model;
     for (const k of fixed) row[k] = el[k];
     const sets = el.IsDefinedBy;
     if (Array.isArray(sets)) {
@@ -82,13 +84,17 @@ function elementsCsv(elements: Record<string, unknown>[]) {
           const vk = Object.keys(p).find((k) => k === "NominalValue" || /Value$/.test(k));
           const col = `${set.Name ?? "Set"}.${p.Name ?? "?"}`;
           psetCols.add(col);
-          row[col] = vk ? p[vk] : "";
+          row[col] = vk ? p[vk] : null;
         }
       }
     }
     return row;
   });
-  const cols = [...fixed, ...[...psetCols].sort()];
+  return { rows, cols: [...fixed, ...[...psetCols].sort()] };
+}
+
+function elementsCsv(elements: Record<string, unknown>[]) {
+  const { rows, cols } = elementRows(elements);
   return [cols.map(csvCell).join(","), ...rows.map((r) => cols.map((c) => csvCell(r[c])).join(","))].join("\r\n");
 }
 
@@ -159,7 +165,23 @@ export function createExporter(opts: {
     ];
   }
 
+  async function allElements() {
+    return withProgress(async (p) => {
+      const out: Record<string, unknown>[] = [];
+      for (const [id, model] of models()) {
+        for (const el of await elementsData(model, p, id)) out.push({ _model: id, ...el });
+      }
+      return out;
+    });
+  }
+
   return {
+    /** Elements with geometry from all loaded models, with property sets (used by the Python console). */
+    elements: allElements,
+    /** Same as elements(), flattened to one row per element. */
+    async elementRows() {
+      return elementRows(await allElements()).rows;
+    },
     /** Everything: per model source IFC, fragments, metadata, properties; plus console and resources. */
     async all() {
       await withProgress(async (p) => {
