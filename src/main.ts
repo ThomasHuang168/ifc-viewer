@@ -266,7 +266,7 @@ downloadMenu.addEventListener("click", async (e) => {
   const item = (e.target as HTMLElement).closest<HTMLElement>("[data-dl]");
   if (!item) return;
   setMenu(false);
-  const kind = item.dataset.dl as keyof typeof exporter;
+  const kind = item.dataset.dl as "all" | "ifc" | "frag" | "propertiesJson" | "propertiesCsv" | "console" | "resources";
   try {
     await exporter[kind]();
   } catch (err) {
