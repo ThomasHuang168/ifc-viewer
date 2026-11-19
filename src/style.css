@@ -179,3 +179,105 @@ body.console-open .resources { max-height: calc(100vh - 84px - min(38vh, 360px) 
   .console { height: 40vh; }
   .resources { width: calc(100vw - 24px); top: auto; bottom: 12px; max-height: 45vh; }
 }
+
+/* ---------- Models menu ---------- */
+.badge {
+  display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 2px;
+  border-radius: 9px; background: #3a414c; font-size: 11px; line-height: 18px; text-align: center;
+}
+.models-menu { min-width: 300px; max-width: min(420px, calc(100vw - 24px)); }
+.menu-empty { color: var(--muted); font-size: 12px; margin: 6px 8px; }
+.model-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px 4px 8px; border-radius: 5px; font-size: 13px; }
+.model-row:hover { background: #2b313a; }
+.model-row input { accent-color: var(--accent); }
+.model-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.model-row small { color: var(--muted); font-variant-numeric: tabular-nums; }
+.icon-btn.small { font-size: 16px; padding: 2px 4px; border-radius: 4px; }
+.icon-btn.small:hover { color: var(--text); background: #343b46; }
+
+/* ---------- Properties panel tabs ---------- */
+.props { transition: width .15s ease; }
+.props.wide { width: min(1000px, calc(100vw - 24px)); }
+.props-head { padding: 6px 10px 6px 8px; }
+.tabs { display: flex; gap: 2px; }
+.tabs button {
+  font: inherit; font-size: 13px; color: var(--muted); background: none; border: 0;
+  padding: 6px 10px; border-radius: 6px; cursor: pointer;
+}
+.tabs button:hover { color: var(--text); background: #2b313a; }
+.tabs button[aria-selected="true"] { color: var(--text); background: #2a3a57; box-shadow: inset 0 -2px 0 var(--accent); }
+.props-body h4 small { display: block; color: var(--muted); text-transform: none; letter-spacing: 0; font-weight: 400; margin-top: 2px; }
+
+/* ---------- Dashboard ---------- */
+.dashboard { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 10px 14px 12px; font-size: 13px; }
+.dash-filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.dash-filters input[type="search"], .dash-filters select, .dash-cols input {
+  font: inherit; font-size: 12px; color: var(--text); background: #1b1f25;
+  border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; min-width: 0;
+}
+.dash-search { flex: 1 1 200px; }
+.dash-filters select { max-width: 220px; }
+.dash-filters input:focus-visible, .dash-filters select:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+.dash-cols { right: 0; left: auto; width: 320px; max-height: 50vh; display: flex; flex-direction: column; gap: 6px; }
+.dash-cols.hidden { display: none; }
+.dash-cols-list { overflow: auto; }
+.col-opt { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+.col-opt:hover { background: #343b46; }
+.col-opt span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.col-opt small { color: var(--muted); font-variant-numeric: tabular-nums; }
+.col-opt input { accent-color: var(--accent); }
+
+.dash-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.tile { background: #232830; border: 1px solid #2c323b; border-radius: 8px; padding: 8px 10px; }
+.tile b { display: block; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tile span { color: var(--muted); font-size: 11px; }
+
+.dash-chart summary { cursor: pointer; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.bars { display: flex; flex-direction: column; gap: 2px; }
+.bar-row {
+  display: grid; grid-template-columns: minmax(90px, 200px) 1fr 64px; align-items: center; gap: 10px;
+  font: inherit; font-size: 12px; color: var(--text); background: none; border: 0;
+  padding: 3px 4px; border-radius: 4px; cursor: pointer; text-align: left;
+}
+.bar-row:hover:not(:disabled) { background: #2b313a; }
+.bar-row:disabled { cursor: default; }
+.bar-row:focus-visible { outline: 2px solid var(--accent); }
+.bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.bar-row[aria-pressed="true"] .bar-label { color: var(--text); font-weight: 600; }
+.bar-track { height: 14px; display: flex; align-items: stretch; }
+.bar-fill { display: block; min-width: 2px; background: var(--accent); border-radius: 0 4px 4px 0; }
+.bar-row:disabled .bar-fill { background: #5b6472; }
+.bar-row.dim .bar-fill { opacity: .35; }
+.bar-value { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.chart-tip {
+  position: absolute; z-index: 5; pointer-events: none; white-space: nowrap;
+  background: #111418; border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; font-size: 12px;
+}
+.dash-count { color: var(--muted); font-size: 12px; }
+
+.dash-table { flex: 1; min-height: 160px; overflow: auto; border: 1px solid #2c323b; border-radius: 8px; }
+.dash-inner { min-width: 100%; }
+.dash-head { position: sticky; top: 0; z-index: 1; display: flex; background: #262b33; border-bottom: 1px solid var(--border); }
+.dash-body { position: relative; }
+.cell {
+  flex: none; padding: 0 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px; line-height: 28px; height: 28px;
+}
+.cell.num { text-align: right; font-variant-numeric: tabular-nums; }
+.th {
+  font: inherit; font-size: 11px; font-weight: 600; color: var(--muted); text-align: left;
+  background: none; border: 0; cursor: pointer; text-transform: uppercase; letter-spacing: .03em;
+}
+.th:hover { color: var(--text); }
+.th[aria-sort] { color: var(--text); }
+.tr { position: absolute; left: 0; right: 0; display: flex; height: 28px; border-bottom: 1px solid #262b33; cursor: pointer; }
+.tr:hover { background: #2b313a; }
+.tr.sel { background: #2a3a57; box-shadow: inset 3px 0 0 var(--accent); }
+.dash-empty { color: var(--muted); margin: 0; }
+
+@media (max-width: 600px) {
+  .props.wide { height: 70vh; }
+  .dash-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bar-row { grid-template-columns: 90px 1fr 48px; }
+}
+.menu-list .model-row button { display: inline-block; width: auto; flex: none; padding: 2px 6px; }
