@@ -10,10 +10,18 @@
 
     <header class="toolbar">
       <span class="brand">IFC Viewer</span>
-      <label class="btn primary">
+      <label class="btn primary" title="Add one or more IFC files">
         Open IFC
-        <input id="file-input" type="file" accept=".ifc" hidden />
+        <input id="file-input" type="file" accept=".ifc" multiple hidden />
       </label>
+      <span class="menu">
+        <button id="btn-models" class="btn" aria-haspopup="true" aria-expanded="false" title="Loaded models">Models <span id="models-count" class="badge">0</span> ▾</button>
+        <div id="models-menu" class="menu-list models-menu hidden">
+          <div id="models-list"></div>
+          <hr />
+          <button data-act="remove-all">Remove all models</button>
+        </div>
+      </span>
       <button id="btn-fit" class="btn" title="Fit model to view (F)">Fit</button>
       <button id="btn-clear" class="btn" title="Clear selection (Esc)">Clear</button>
       <span class="menu">
@@ -30,23 +38,28 @@
           <button role="menuitem" data-dl="resources">Resource snapshot (.json)</button>
         </div>
       </span>
+      <button id="btn-props" class="btn" aria-pressed="false" title="Toggle properties and dashboard (P)">Properties</button>
       <button id="btn-console" class="btn" aria-pressed="false" title="Toggle console (`)">Console</button>
       <button id="btn-resources" class="btn" aria-pressed="false" title="Toggle resource monitor (R)">Resources</button>
-      <span id="status" class="status">Drop an .ifc file anywhere, or click Open IFC</span>
+      <span id="status" class="status">Drop .ifc files anywhere, or click Open IFC</span>
     </header>
 
     <aside id="props" class="props hidden">
       <div class="props-head">
-        <strong>Properties</strong>
+        <span class="tabs" role="tablist">
+          <button role="tab" id="tab-selected" aria-selected="true" aria-controls="props-body">Selected</button>
+          <button role="tab" id="tab-all" aria-selected="false" aria-controls="dashboard">All elements</button>
+        </span>
         <button id="props-close" class="icon-btn" aria-label="Close">×</button>
       </div>
-      <div id="props-body" class="props-body"></div>
+      <div id="props-body" class="props-body" role="tabpanel"></div>
+      <div id="dashboard" class="dashboard hidden" role="tabpanel"></div>
     </aside>
 
     <aside id="resources" class="resources panel hidden"></aside>
     <section id="console" class="console panel hidden"></section>
 
-    <div id="drop-overlay" class="drop-overlay hidden">Drop IFC file to load</div>
+    <div id="drop-overlay" class="drop-overlay hidden">Drop IFC files to add them</div>
     <div id="loading" class="loading hidden"><div class="spinner"></div><span id="loading-text">Loading…</span></div>
 
     <script type="module" src="/src/main.ts"></script>

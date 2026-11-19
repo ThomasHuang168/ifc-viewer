@@ -8,6 +8,8 @@ import type { ItemData } from "@thatopen/fragments";
 import workerUrl from "@thatopen/fragments/worker?url";
 import { createResourceMonitor } from "./resources";
 import { createExporter, type SourceFile } from "./export";
+import { createDashboard, type Row } from "./dashboard";
+import { fmtBytes } from "./resources";
 import "./style.css";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -71,46 +73,101 @@ await ifcLoader.setup({
 
 // Original IFC bytes per model id, kept so they can be downloaded again
 const sources = new Map<string, SourceFile>();
+const hiddenModels = new Set<string>();
 
-async function clearModels() {
-  for (const [id] of fragments.list) await fragments.core.disposeModel(id);
-  sources.clear();
+/** Model ids must be unique; loading "a.ifc" twice gives "a.ifc" and "a (2).ifc". */
+function uniqueId(name: string) {
+  const dot = name.lastIndexOf(".");
+  const base = dot > 0 ? name.slice(0, dot) : name;
+  const ext = dot > 0 ? name.slice(dot) : "";
+  let id = name;
+  for (let n = 2; fragments.list.has(id) || sources.has(id); n++) id = `${base} (${n})${ext}`;
+  return id;
 }
 
-async function loadIfc(buffer: ArrayBuffer, name: string) {
-  setLoading(`Converting ${name}…`);
-  statusEl.textContent = name;
+async function removeModel(id: string) {
+  clearSelection();
+  await fragments.core.disposeModel(id);
+  sources.delete(id);
+  hiddenModels.delete(id);
+  console.info(`Removed ${id}`);
+  modelsChanged();
+}
+
+async function clearModels() {
+  for (const id of [...fragments.list.keys()]) await removeModel(id);
+}
+
+async function setModelVisible(id: string, visible: boolean) {
+  const model = fragments.list.get(id);
+  if (!model) return;
+  if (!visible) await highlighter.clear("select");
+  await model.setVisible(undefined, visible);
+  visible ? hiddenModels.delete(id) : hiddenModels.add(id);
+  await fragments.core.update(true);
+  renderModelsMenu();
+}
+
+async function fitModel(id: string) {
+  const model = fragments.list.get(id);
+  if (!model) return;
+  await world.camera.fitToItems({ [id]: new Set(await model.getItemsIdsWithGeometry()) });
+}
+
+function modelsChanged() {
+  dashboard.invalidate();
+  if (activeTab === "all" && !propsPanel.classList.contains("hidden")) dashboard.show();
+  renderModelsMenu();
+  const n = fragments.list.size;
+  statusEl.textContent =
+    n === 0 ? "Drop .ifc files anywhere, or click Open IFC"
+    : n === 1 ? [...fragments.list.keys()][0]
+    : `${n} models loaded`;
+}
+
+async function loadIfc(buffer: ArrayBuffer, name: string, progress = "") {
+  const id = uniqueId(name);
+  setLoading(`Converting ${id}${progress}…`);
   try {
-    await clearModels();
-    clearSelection();
-    console.info(`Loading ${name} (${(buffer.byteLength / 1048576).toFixed(1)} MB)`);
+    console.info(`Loading ${id} (${(buffer.byteLength / 1048576).toFixed(1)} MB)`);
     const t0 = performance.now();
     const data = new Uint8Array(buffer);
-    sources.set(name, { name, data });
-    await ifcLoader.load(data, true, name, {
+    sources.set(id, { name: id, data });
+    await ifcLoader.load(data, true, id, {
       processData: {
         progressCallback: (p: number) =>
-          setLoading(`Converting ${name}… ${Math.round(p * 100)}%`),
+          setLoading(`Converting ${id}${progress}… ${Math.round(p * 100)}%`),
       },
     });
-    console.info(`Loaded ${name} in ${((performance.now() - t0) / 1000).toFixed(1)} s`);
-    await new Promise((r) => setTimeout(r, 50));
-    await fitAll();
+    console.info(`Loaded ${id} in ${((performance.now() - t0) / 1000).toFixed(1)} s`);
+    return true;
   } catch (err) {
     console.error(err);
-    sources.delete(name);
+    sources.delete(id);
     statusEl.textContent = `Could not load ${name}: ${(err as Error).message}`;
+    return false;
   } finally {
     setLoading(null);
   }
 }
 
-async function loadFile(file: File) {
-  if (!file.name.toLowerCase().endsWith(".ifc")) {
-    statusEl.textContent = "Please choose an .ifc file";
+async function loadFiles(files: File[]) {
+  const ifcs = files.filter((f) => f.name.toLowerCase().endsWith(".ifc"));
+  if (ifcs.length === 0) {
+    statusEl.textContent = "Please choose .ifc files";
     return;
   }
-  await loadIfc(await file.arrayBuffer(), file.name);
+  if (ifcs.length < files.length) console.warn(`Skipped ${files.length - ifcs.length} non-IFC file(s)`);
+  let loaded = 0;
+  for (const [i, f] of ifcs.entries()) {
+    const progress = ifcs.length > 1 ? ` (${i + 1}/${ifcs.length})` : "";
+    if (await loadIfc(await f.arrayBuffer(), f.name, progress)) loaded++;
+  }
+  if (loaded) {
+    modelsChanged();
+    await new Promise((r) => setTimeout(r, 50));
+    await fitAll();
+  }
 }
 
 async function fitAll() {
@@ -133,7 +190,6 @@ highlighter.zoomToSelection = false;
 
 function clearSelection() {
   highlighter.clear("select");
-  propsPanel.classList.add("hidden");
 }
 
 const val = (a: unknown): string => {
@@ -154,14 +210,19 @@ function table(rows: [string, string][]) {
   return t;
 }
 
-function section(title: string, rows: [string, string][]) {
+function section(title: string, rows: [string, string][], sub?: string) {
   if (rows.length === 0) return;
   const h = document.createElement("h4");
   h.textContent = title;
+  if (sub) {
+    const m = document.createElement("small");
+    m.textContent = sub;
+    h.append(m);
+  }
   propsBody.append(h, table(rows));
 }
 
-function renderItem(item: ItemData) {
+function renderItem(item: ItemData, modelId?: string) {
   // Direct attributes
   const labels: Record<string, string> = { _category: "IFC class", _guid: "GlobalId" };
   const attrs: [string, string][] = [];
@@ -170,7 +231,7 @@ function renderItem(item: ItemData) {
     const v = val(a);
     if (v !== "") attrs.push([labels[key] ?? key, v]);
   }
-  section(val(item.Name) || "Element", attrs);
+  section(val(item.Name) || "Element", attrs, modelId);
 
   // Property sets and quantity sets
   const sets = item.IsDefinedBy;
@@ -189,9 +250,13 @@ function renderItem(item: ItemData) {
   }
 }
 
+const NO_SELECTION = "Click an element in the model to see its properties.";
+
 highlighter.events.select.onHighlight.add(async (modelIdMap) => {
+  dashboard.setSelection(modelIdMap);
+  if (propsPanel.classList.contains("hidden")) showProps(true, "selected");
   propsBody.innerHTML = "";
-  propsPanel.classList.remove("hidden");
+  const many = fragments.list.size > 1;
   for (const [modelId, ids] of Object.entries(modelIdMap)) {
     const model = fragments.list.get(modelId);
     if (!model) continue;
@@ -202,12 +267,15 @@ highlighter.events.select.onHighlight.add(async (modelIdMap) => {
         DefinesOcurrence: { attributes: false, relations: false },
       },
     });
-    items.forEach(renderItem);
+    items.forEach((it) => renderItem(it, many ? modelId : undefined));
   }
   if (!propsBody.childElementCount) propsBody.textContent = "No properties found.";
 });
 
-highlighter.events.select.onClear.add(() => propsPanel.classList.add("hidden"));
+highlighter.events.select.onClear.add(() => {
+  propsBody.textContent = NO_SELECTION;
+  dashboard.setSelection({});
+});
 
 // ---------- Console, resources, downloads ----------
 const consolePanel = $("console");
@@ -232,6 +300,93 @@ const exporter = createExporter({
   snapshot: monitor.snapshot,
   progress: (t) => setLoading(t),
 });
+
+// ---------- Properties panel: "Selected" and "All elements" tabs ----------
+const dashboard = createDashboard({
+  root: $("dashboard"),
+  loadRows: async () => (await exporter.elementRows()) as Row[],
+  onSelect: (modelId, localId) =>
+    highlighter.highlightByID("select", { [modelId]: new Set([localId]) }, true, true),
+});
+const btnProps = $("btn-props");
+let activeTab: "selected" | "all" = "selected";
+propsBody.textContent = NO_SELECTION;
+
+function setTab(tab: "selected" | "all") {
+  activeTab = tab;
+  $("tab-selected").setAttribute("aria-selected", String(tab === "selected"));
+  $("tab-all").setAttribute("aria-selected", String(tab === "all"));
+  propsBody.classList.toggle("hidden", tab !== "selected");
+  $("dashboard").classList.toggle("hidden", tab !== "all");
+  propsPanel.classList.toggle("wide", tab === "all");
+  if (tab === "all") dashboard.show().catch((err) => console.error(err));
+}
+function showProps(show?: boolean, tab?: "selected" | "all") {
+  const visible = togglePanel(propsPanel, btnProps, show);
+  if (visible) setTab(tab ?? activeTab);
+}
+$("tab-selected").addEventListener("click", () => setTab("selected"));
+$("tab-all").addEventListener("click", () => setTab("all"));
+btnProps.addEventListener("click", () => showProps());
+$("props-close").addEventListener("click", () => showProps(false));
+
+// ---------- Models menu ----------
+const btnModels = $("btn-models");
+const modelsMenu = $("models-menu");
+const modelsList = $("models-list");
+function setModelsMenu(open: boolean) {
+  modelsMenu.classList.toggle("hidden", !open);
+  btnModels.setAttribute("aria-expanded", String(open));
+}
+btnModels.addEventListener("click", (e) => {
+  e.stopPropagation();
+  setModelsMenu(modelsMenu.classList.contains("hidden"));
+});
+modelsMenu.addEventListener("click", (e) => e.stopPropagation());
+document.addEventListener("click", () => setModelsMenu(false));
+modelsMenu.querySelector('[data-act="remove-all"]')!.addEventListener("click", async () => {
+  setModelsMenu(false);
+  await clearModels();
+});
+
+function renderModelsMenu() {
+  $("models-count").textContent = String(fragments.list.size);
+  if (fragments.list.size === 0) {
+    modelsList.innerHTML = `<p class="menu-empty">No models loaded. Open or drop .ifc files; each one is added to the scene.</p>`;
+    return;
+  }
+  modelsList.replaceChildren(
+    ...[...fragments.list.keys()].map((id) => {
+      const row = document.createElement("div");
+      row.className = "model-row";
+      const vis = document.createElement("input");
+      vis.type = "checkbox";
+      vis.checked = !hiddenModels.has(id);
+      vis.title = "Show or hide";
+      vis.setAttribute("aria-label", `Show ${id}`);
+      vis.addEventListener("change", () => setModelVisible(id, vis.checked));
+      const name = document.createElement("span");
+      name.className = "model-name";
+      name.textContent = id;
+      name.title = id;
+      const size = document.createElement("small");
+      size.textContent = fmtBytes(sources.get(id)?.data.byteLength);
+      const zoom = document.createElement("button");
+      zoom.className = "icon-btn small";
+      zoom.textContent = "⤢";
+      zoom.title = `Zoom to ${id}`;
+      zoom.addEventListener("click", () => fitModel(id));
+      const del = document.createElement("button");
+      del.className = "icon-btn small";
+      del.textContent = "×";
+      del.title = `Remove ${id}`;
+      del.addEventListener("click", () => removeModel(id));
+      row.append(vis, name, size, zoom, del);
+      return row;
+    }),
+  );
+}
+renderModelsMenu();
 
 function togglePanel(panel: HTMLElement, btn: HTMLElement, show?: boolean) {
   const visible = show ?? panel.classList.contains("hidden");
@@ -276,7 +431,7 @@ downloadMenu.addEventListener("click", async (e) => {
 });
 
 // Handy objects for the in-browser console
-const scope = { THREE, OBC, OBF, components, world, fragments, highlighter, ifcLoader, sources, exporter, monitor };
+const scope = { THREE, OBC, OBF, components, world, fragments, highlighter, ifcLoader, sources, exporter, monitor, dashboard, loadFiles, removeModel };
 setConsoleScope({
   ...scope,
   help: () =>
@@ -290,13 +445,12 @@ console.info("IFC Viewer ready. Press ` to open this console, R for resources.")
 // ---------- UI wiring ----------
 $<HTMLInputElement>("file-input").addEventListener("change", async (e) => {
   const input = e.target as HTMLInputElement;
-  const file = input.files?.[0];
-  if (file) await loadFile(file);
+  const files = [...(input.files ?? [])];
   input.value = "";
+  if (files.length) await loadFiles(files);
 });
 $("btn-fit").addEventListener("click", fitAll);
 $("btn-clear").addEventListener("click", clearSelection);
-$("props-close").addEventListener("click", clearSelection);
 
 window.addEventListener("keydown", (e) => {
   const tag = (e.target as HTMLElement).tagName;
@@ -304,7 +458,15 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "f" || e.key === "F") fitAll();
   if (e.key === "`") { e.preventDefault(); toggleConsole(); }
   if (e.key === "r" || e.key === "R") toggleResources();
-  if (e.key === "Escape") { clearSelection(); setMenu(false); }
+  if (e.key === "p" || e.key === "P") showProps();
+  if (e.key === "Escape") {
+    const menuOpen = [downloadMenu, modelsMenu].some((m) => !m.classList.contains("hidden"));
+    setMenu(false);
+    setModelsMenu(false);
+    if (menuOpen) return; // first Escape just closes the open menu
+    clearSelection();
+    if (activeTab === "selected") showProps(false);
+  }
 });
 
 // Drag & drop
@@ -323,20 +485,33 @@ window.addEventListener("drop", async (e) => {
   e.preventDefault();
   dragDepth = 0;
   overlay.classList.add("hidden");
-  const file = e.dataTransfer?.files?.[0];
-  if (file) await loadFile(file);
+  const files = [...(e.dataTransfer?.files ?? [])];
+  if (files.length) await loadFiles(files);
 });
 
-// Optional: load a model from the URL, e.g. ?model=models/house.ifc
-const modelParam = new URLSearchParams(location.search).get("model");
-if (modelParam) {
-  setLoading("Downloading model…");
+// Optional: load models from the URL, e.g. ?model=models/house.ifc or ?model=a.ifc,b.ifc
+// (repeating the parameter also works: ?model=a.ifc&model=b.ifc)
+const modelParams = new URLSearchParams(location.search)
+  .getAll("model")
+  .flatMap((m) => m.split(","))
+  .map((m) => m.trim())
+  .filter(Boolean);
+let urlLoaded = 0;
+for (const [i, url] of modelParams.entries()) {
+  const progress = modelParams.length > 1 ? ` (${i + 1}/${modelParams.length})` : "";
+  setLoading(`Downloading ${url}${progress}…`);
   try {
-    const res = await fetch(modelParam);
+    const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    await loadIfc(await res.arrayBuffer(), modelParam.split("/").pop() ?? "model.ifc");
+    if (await loadIfc(await res.arrayBuffer(), url.split("/").pop() || "model.ifc", progress)) urlLoaded++;
   } catch (err) {
     setLoading(null);
-    statusEl.textContent = `Could not fetch ${modelParam}: ${(err as Error).message}`;
+    console.error(err);
+    statusEl.textContent = `Could not fetch ${url}: ${(err as Error).message}`;
   }
+}
+if (urlLoaded) {
+  modelsChanged();
+  await new Promise((r) => setTimeout(r, 50));
+  await fitAll();
 }

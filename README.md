@@ -4,11 +4,14 @@ A browser-based IFC (BIM) viewer built with [That Open Engine](https://thatopen.
 
 ## Features
 
-- Open an `.ifc` file with the button or by dragging it onto the page
+- Open `.ifc` files with the button or by dragging them onto the page. Each file is **added** to the scene, so several models can be viewed together. The **Models** menu shows, hides, zooms to or removes each one. Loading a file whose name is already loaded gives it a unique name, such as `house (2).ifc`.
 - Orbit, pan and zoom
 - Click an element to highlight it and see its attributes, property sets and quantities
+- **Properties** (toolbar button or **P**) has two tabs:
+  - **Selected**: the attributes and property sets of the clicked element.
+  - **All elements**: a dashboard of every element in every loaded model, with summary tiles, an elements-per-class chart (click a bar to filter), search across all properties, model and class filters, sortable columns, a column picker covering every property, and a CSV download of the filtered view. Clicking a row selects and zooms to that element in 3D; selecting in 3D highlights its row.
 - **F** fits the model to the view, **Esc** clears the selection
-- Load a model from a URL: `?model=models/my-building.ifc`
+- Load models from a URL: `?model=models/my-building.ifc`, or several with `?model=a.ifc,b.ifc`
 - **Console** (toolbar button or the **`** key): shows everything the app logs, including errors, and runs JavaScript. The viewer's objects (`world`, `fragments`, `components`, `THREE`, `exporter`, `monitor`, …) are in scope; type `help()` to list them. Up/Down recalls history, Shift+Enter adds a line, Ctrl+L clears.
 - **Python console**: switch the console to **Python** to run real Python 3.14 in the browser ([Pyodide](https://pyodide.org)). It's downloaded from jsDelivr the first time (about 13 MB, then cached), so pages that never use it stay as fast as before. Helpers: `await elements()`, `await rows()`, `await dataframe()` (pandas), `models()`, `model_files()` (writes the loaded IFC files to `/models`). The viewer's JS objects are in the `viewer` module. Imports like `numpy` and `pandas` load automatically, and `micropip` installs pure-Python packages from PyPI. IfcOpenShell is not available, since it has no Pyodide build.
 - **Download** menu: save everything the browser holds as one `.zip` (original IFC, converted `.frag`, metadata and categories, spatial structure, element properties as JSON and CSV, every IFC entity as JSON, the console log and a resource snapshot), or any of those on its own.
