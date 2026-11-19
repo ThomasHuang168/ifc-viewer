@@ -76,3 +76,98 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); }
   .status { display: none; }
   .props { top: auto; height: 45vh; }
 }
+
+/* ---------- Shared panel chrome ---------- */
+.panel {
+  position: fixed; z-index: 11;
+  display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+}
+.panel-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 10px 6px 14px; border-bottom: 1px solid var(--border); font-size: 13px;
+}
+.spacer { flex: 1; }
+.btn.small { padding: 3px 8px; font-size: 12px; }
+.btn[aria-pressed="true"] { border-color: var(--accent); color: #fff; background: #2a3a57; }
+
+/* ---------- Download menu ---------- */
+.menu { position: relative; }
+.menu-list {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
+  min-width: 260px; padding: 6px;
+  background: #232830; border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .4);
+}
+.menu-list button {
+  display: block; width: 100%; text-align: left;
+  font: inherit; font-size: 13px; color: var(--text);
+  background: none; border: 0; border-radius: 5px; padding: 7px 10px; cursor: pointer;
+}
+.menu-list button:hover, .menu-list button:focus-visible { background: #343b46; outline: none; }
+.menu-list small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+.menu-list hr { border: 0; border-top: 1px solid var(--border); margin: 4px 2px; }
+
+/* ---------- Console ---------- */
+.console {
+  left: 12px; bottom: 12px;
+  width: min(760px, calc(100vw - 24px)); height: min(38vh, 360px);
+  resize: both; overflow: hidden; min-height: 140px; min-width: 280px;
+}
+.console-filters { display: flex; gap: 10px; color: var(--muted); font-size: 12px; }
+.console-filters label { display: flex; align-items: center; gap: 3px; cursor: pointer; }
+.console-out {
+  flex: 1; overflow: auto; padding: 4px 0;
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.console-out .line {
+  display: flex; gap: 10px; padding: 2px 12px;
+  border-bottom: 1px solid #262b33; white-space: pre-wrap; word-break: break-word;
+}
+.console-out .line time { color: #6b7380; flex: none; }
+.console-out .line.warn { background: rgba(240, 180, 40, .08); color: #f0c674; }
+.console-out .line.error { background: rgba(240, 80, 80, .1); color: #ff8a80; }
+.console-out .line.info { color: #9ecbff; }
+.console-out .line.debug { color: var(--muted); }
+.console-out .line.input { color: var(--accent); }
+.console-out .line.result { color: #b8e0b0; }
+.console-in {
+  display: flex; align-items: flex-start; gap: 6px;
+  border-top: 1px solid var(--border); padding: 6px 12px;
+}
+.console-in .prompt { color: var(--accent); font: 14px/1.45 ui-monospace, monospace; }
+.console-in textarea {
+  flex: 1; resize: none; background: none; border: 0; outline: none; color: var(--text);
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; padding: 1px 0;
+}
+
+/* ---------- Resource monitor ---------- */
+.resources {
+  left: 12px; top: 72px; width: 270px;
+  max-height: calc(100vh - 84px); overflow: auto;
+}
+body.console-open .resources { max-height: calc(100vh - 84px - min(38vh, 360px) - 12px); }
+.live-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #3ecf6e;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse { 50% { opacity: .3; } }
+.res-body { padding: 8px 14px 12px; font-size: 12px; }
+.res-metric { margin-bottom: 10px; }
+.res-row { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.res-row span, .res-table td:first-child { color: var(--muted); }
+.res-row b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.bar { height: 4px; background: #2c323b; border-radius: 2px; overflow: hidden; margin-bottom: 4px; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s; }
+.spark { display: block; width: 100%; height: 32px; color: var(--accent); }
+.res-table { width: 100%; border-collapse: collapse; }
+.res-table td:first-child { white-space: nowrap; }
+.res-table td { padding: 3px 0; border-bottom: 1px solid #2c323b; vertical-align: top; }
+.res-table td:last-child { text-align: right; font-variant-numeric: tabular-nums; word-break: break-word; padding-left: 8px; }
+.res-note { color: var(--muted); margin: 8px 0 0; font-size: 11px; }
+.res-note:empty { display: none; }
+
+@media (max-width: 600px) {
+  .console { height: 40vh; }
+  .resources { width: calc(100vw - 24px); top: auto; bottom: 12px; max-height: 45vh; }
+}
