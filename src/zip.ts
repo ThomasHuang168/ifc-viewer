@@ -93,6 +93,7 @@ export function saveBlob(blob: Blob, filename: string) {
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  a.addEventListener("click", (e) => e.stopPropagation()); // don't close open menus
   document.body.append(a);
   a.click();
   a.remove();

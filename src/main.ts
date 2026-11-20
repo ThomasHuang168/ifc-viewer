@@ -10,6 +10,8 @@ import { createResourceMonitor } from "./resources";
 import { createExporter, type SourceFile } from "./export";
 import { createDashboard, type Row } from "./dashboard";
 import { fmtBytes } from "./resources";
+import { createServerClient } from "./server";
+import { createServerUi } from "./server-ui";
 import "./style.css";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -115,6 +117,7 @@ async function fitModel(id: string) {
 }
 
 function modelsChanged() {
+  serverUi.sync(fragments.list.keys());
   dashboard.invalidate();
   if (activeTab === "all" && !propsPanel.classList.contains("hidden")) dashboard.show();
   renderModelsMenu();
@@ -330,6 +333,49 @@ $("tab-all").addEventListener("click", () => setTab("all"));
 btnProps.addEventListener("click", () => showProps());
 $("props-close").addEventListener("click", () => showProps(false));
 
+// ---------- Optional Python backend ----------
+const server = createServerClient();
+const serverUi = createServerUi({
+  button: $("btn-server"),
+  menu: $("server-menu"),
+  client: server,
+  loadedModels: () =>
+    [...fragments.list.entries()].map(([id, model]) => ({
+      id,
+      ifc: sources.get(id)?.data,
+      frag: async () => model.getBuffer(false) as Promise<ArrayBuffer>,
+      elements: () => exporter.modelElements(id),
+    })),
+  open: async (m, frag, ifc) => {
+    if (!frag) {
+      // Stored without viewer geometry (e.g. uploaded with curl): convert in the browser
+      const ok = await loadIfc(ifc, m.name);
+      if (ok) { modelsChanged(); await fitAll(); }
+      return ok ? [...fragments.list.keys()].pop() ?? null : null;
+    }
+    const id = uniqueId(m.name);
+    setLoading(`Opening ${id}…`);
+    sources.set(id, { name: id, data: new Uint8Array(ifc) });
+    try {
+      await fragments.core.load(frag, { modelId: id });
+      console.info(`Opened ${id} from server (stored geometry, no conversion needed)`);
+    } catch (err) {
+      sources.delete(id);
+      throw err;
+    } finally {
+      setLoading(null);
+    }
+    modelsChanged();
+    await new Promise((r) => setTimeout(r, 50));
+    await fitAll();
+    return id;
+  },
+  progress: (t) => setLoading(t),
+});
+server.autoConnect().then((info) => {
+  if (info) console.info(`Connected to backend ${server.url}` + (info.ifcopenshell ? ` (IfcOpenShell ${info.ifcopenshell})` : ""));
+});
+
 // ---------- Models menu ----------
 const btnModels = $("btn-models");
 const modelsMenu = $("models-menu");
@@ -431,7 +477,7 @@ downloadMenu.addEventListener("click", async (e) => {
 });
 
 // Handy objects for the in-browser console
-const scope = { THREE, OBC, OBF, components, world, fragments, highlighter, ifcLoader, sources, exporter, monitor, dashboard, loadFiles, removeModel };
+const scope = { THREE, OBC, OBF, components, world, fragments, highlighter, ifcLoader, sources, exporter, monitor, dashboard, loadFiles, removeModel, server };
 setConsoleScope({
   ...scope,
   help: () =>
@@ -460,9 +506,10 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "r" || e.key === "R") toggleResources();
   if (e.key === "p" || e.key === "P") showProps();
   if (e.key === "Escape") {
-    const menuOpen = [downloadMenu, modelsMenu].some((m) => !m.classList.contains("hidden"));
+    const menuOpen = [downloadMenu, modelsMenu].some((m) => !m.classList.contains("hidden")) || serverUi.isOpen();
     setMenu(false);
     setModelsMenu(false);
+    serverUi.close();
     if (menuOpen) return; // first Escape just closes the open menu
     clearSelection();
     if (activeTab === "selected") showProps(false);

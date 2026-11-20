@@ -176,6 +176,12 @@ export function createExporter(opts: {
   }
 
   return {
+    /** Elements of one model with their property sets, without the progress spinner. */
+    async modelElements(id: string) {
+      const model = fragments.list.get(id);
+      if (!model) throw new Error(`No model ${id}`);
+      return elementsData(model, () => {}, id);
+    },
     /** Elements with geometry from all loaded models, with property sets (used by the Python console). */
     elements: allElements,
     /** Same as elements(), flattened to one row per element. */

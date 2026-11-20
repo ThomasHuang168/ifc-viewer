@@ -281,3 +281,30 @@ body.console-open .resources { max-height: calc(100vh - 84px - min(38vh, 360px) 
   .bar-row { grid-template-columns: 90px 1fr 48px; }
 }
 .menu-list .model-row button { display: inline-block; width: auto; flex: none; padding: 2px 6px; }
+
+/* ---------- Server menu ---------- */
+.server-btn { display: inline-flex; align-items: center; gap: 6px; }
+.server-btn .dot { width: 7px; height: 7px; border-radius: 50%; background: #5b6472; }
+.server-btn.connected .dot { background: #3ecf6e; }
+.server-menu { min-width: 340px; width: min(440px, calc(100vw - 24px)); padding: 10px; }
+.menu-note { color: var(--muted); font-size: 12px; margin: 2px 2px 8px; line-height: 1.45; }
+.menu-error { color: #ff8a80; font-size: 12px; margin: 8px 2px 0; }
+.server-form { display: flex; flex-direction: column; gap: 6px; }
+.server-form input {
+  font: inherit; font-size: 12px; color: var(--text); background: #1b1f25;
+  border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px;
+}
+.menu-list .btn { display: inline-block; width: auto; text-align: center; }
+.menu-list .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.menu-list .btn:disabled { opacity: .5; cursor: default; }
+.server-head { display: flex; align-items: flex-start; gap: 8px; justify-content: space-between; font-size: 12px; margin-bottom: 8px; }
+.server-head span { overflow-wrap: anywhere; }
+.server-head small { display: block; color: var(--muted); margin-top: 2px; }
+.menu-list .save-btn { width: 100%; }
+.server-title { display: flex; justify-content: space-between; align-items: center; font-size: 12px; padding: 0 2px 4px; }
+.server-list { max-height: 45vh; overflow: auto; }
+.server-row { display: flex; align-items: center; gap: 6px; padding: 5px 4px; border-radius: 5px; }
+.server-row:hover { background: #2b313a; }
+.server-info { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13px; }
+.server-info small { color: var(--muted); font-size: 11px; }
+.menu-list .server-row .icon-btn, .menu-list .server-title .icon-btn { display: inline-block; width: auto; flex: none; padding: 2px 6px; }

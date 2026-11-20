@@ -17,6 +17,8 @@ A browser-based IFC (BIM) viewer built with [That Open Engine](https://thatopen.
 - **Download** menu: save everything the browser holds as one `.zip` (original IFC, converted `.frag`, metadata and categories, spatial structure, element properties as JSON and CSV, every IFC entity as JSON, the console log and a resource snapshot), or any of those on its own.
 - **Resources** (toolbar button or **R**): live frame rate, JS heap use, site storage, draw calls, triangles, GPU geometries and textures, loaded model size, CPU threads, device memory and GPU name. JS heap size is only reported by Chromium-based browsers.
 
+- **Server** menu (optional): connect to the Python backend in [`backend/`](backend/README.md) to store models on a server. It keeps the original IFC, the converted geometry and every element's properties in SQLite, and with IfcOpenShell installed also extracts a mesh per element. Stored models reopen without conversion. Nothing changes if you don't run it.
+
 ## Run locally
 
 Requires Node.js 20 or later.
