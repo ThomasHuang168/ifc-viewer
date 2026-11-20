@@ -1,0 +1,3 @@
+# Optional: lets the server re-read IFC files in Python and store per-element meshes + property sets
+-r requirements.txt
+ifcopenshell>=0.8
